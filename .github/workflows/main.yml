@@ -30,8 +30,18 @@ jobs:
         echo "Test coverage: ${COVERAGE}%"
         echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
 
+    - name: Start the application
+      run: |
+        nohup python app.py &
+      env:
+        FLASK_ENV: testing  # Optional: Set environment to testing
+
     - name: Run Cucumber tests
       run: behave
+
+    - name: Shutdown the application
+      run: |
+        pkill -f "python app.py"
 
     - name: Build Docker image
       run: docker build -t charan0026/devopa-app:latest .
