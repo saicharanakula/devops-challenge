@@ -150,7 +150,7 @@ jobs:
     - name: Monitor SAST scan status
       run: |
         echo "SAST Scan Status: ${{ env.SAST_STATUS }}"
-        if [ "${{ env.SAST_STATUS }}" != "PASSED" ]; then
+        if [ "${{ env.SAST_STATUS }}" != "OK" ]; then
           echo "SAST scan failed, failing pipeline"
           exit 1
         fi
