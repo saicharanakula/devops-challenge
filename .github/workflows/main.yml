@@ -74,7 +74,8 @@ jobs:
 
     - name: Check SAST results
       run: |
-        SAST_STATUS=$(curl -s https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge | jq -r '.analyses[0].qualityGate.status')
+        curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge"
+        SAST_STATUS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge" | jq -r '.analyses[0].qualityGate.status')
         echo "SAST_STATUS=${SAST_STATUS}" >> $GITHUB_ENV
         if [ "${SAST_STATUS}" != "PASSED" ]; then
           echo "SAST scan failed, aborting..."
