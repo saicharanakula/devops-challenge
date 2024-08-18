@@ -11,8 +11,9 @@ jobs:
 
     steps:
     - name: Start build timer
+      id: start-timer
       run: echo "BUILD_START=$(date +%s)" >> $GITHUB_ENV
-      
+
     - name: Checkout code
       uses: actions/checkout@v2
 
@@ -27,31 +28,29 @@ jobs:
         pip install pytest behave requests pytest-cov
 
     - name: Run unit tests with coverage
+      id: run-tests
       run: |
         pytest --cov=./ > coverage.txt
         COVERAGE=$(grep "TOTAL" coverage.txt | awk '{print $4}')
         echo "Test coverage: ${COVERAGE}%"
         echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
-      id: coverage
+        echo "Set COVERAGE: $COVERAGE"
 
     - name: Build Docker image
+      id: build-docker
       run: docker build -t charan0026/devopa-app:latest .
-
-    - name: Log in to Docker Hub
-      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
-    - name: Push Docker image to Docker Hub
-      run: docker push charan0026/devopa-app:latest
-
+    
     - name: End build timer and calculate build time
+      id: end-timer
       run: |
         BUILD_END=$(date +%s)
         BUILD_TIME=$((BUILD_END - $BUILD_START))
         echo "Build time: ${BUILD_TIME} seconds"
         echo "BUILD_TIME=${BUILD_TIME}" >> $GITHUB_ENV
+        echo "Set BUILD_TIME: $BUILD_TIME"
 
     outputs:
-      coverage: $${{ env.COVERAGE }}
+      coverage: ${{ env.COVERAGE }}
       build_time: ${{ env.BUILD_TIME }}
 
   sonarcloud:
@@ -88,19 +87,17 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     - name: Check SAST results
+      id: check-sast
       run: |
         ANALYSIS_KEY=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge" | jq -r '.analyses[0].key')
-        curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}"
-        # Fetch the quality gate status using the analysis key
         SAST_STATUS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}" | jq -r '.projectStatus.status')
-        
         echo "SAST_STATUS=${SAST_STATUS}" >> $GITHUB_ENV
-        
+        echo "Set SAST_STATUS: $SAST_STATUS"
+
         if [ "${SAST_STATUS}" != "OK" ]; then
           echo "SAST scan failed, aborting..."
           exit 1
         fi
-      id: sast_status
 
     outputs:
       sast_status: ${{ env.SAST_STATUS }}
@@ -150,21 +147,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Debug Build Time
+      run: echo "Debug Build Time: ${{ needs.build.outputs.build_time }}"
+
     - name: Monitor build time
-      id: build_time
       run: |
+        if [ -z "${{ needs.build.outputs.build_time }}" ]; then
+          echo "Build time not set, failing pipeline"
+          exit 1
+        fi
         echo "Build time: ${{ needs.build.outputs.build_time }} seconds"
+
+    - name: Debug Coverage
+      run: echo "Debug Coverage: ${{ needs.build.outputs.coverage }}"
 
     - name: Monitor test coverage
       run: |
+        if [ -z "${{ needs.build.outputs.coverage }}" ]; then
+          echo "Test coverage not set, failing pipeline"
+          exit 1
+        fi
         echo "Test coverage: ${{ needs.build.outputs.coverage }}%"
         if [ "${{ needs.build.outputs.coverage }}" -lt 90 ]; then
           echo "Test coverage too low, failing pipeline"
           exit 1
         fi
 
+    - name: Debug SAST Status
+      run: echo "Debug SAST Status: ${{ needs.sonarcloud.outputs.sast_status }}"
+
     - name: Monitor SAST scan status
       run: |
+        if [ -z "${{ needs.sonarcloud.outputs.sast_status }}" ]; then
+          echo "SAST status not set, failing pipeline"
+          exit 1
+        fi
         echo "SAST Scan Status: ${{ needs.sonarcloud.outputs.sast_status }}"
         if [ "${{ needs.sonarcloud.outputs.sast_status }}" != "OK" ]; then
           echo "SAST scan failed, failing pipeline"
