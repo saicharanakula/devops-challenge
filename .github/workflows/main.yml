@@ -1,0 +1,141 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install pytest behave requests pytest-cov
+
+    - name: Run unit tests with coverage
+      run: |
+        pytest --cov=./ > coverage.txt
+        COVERAGE=$(grep "TOTAL" coverage.txt | awk '{print $4}')
+        echo "Test coverage: ${COVERAGE}%"
+        echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
+
+    - name: Run Cucumber tests
+      run: behave
+
+    - name: Build Docker image
+      run: docker build -t charan0026/devopa-app:latest .
+
+    - name: Log in to Docker Hub
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Push Docker image to Docker Hub
+      run: docker push charan0026/devopa-app:latest
+
+  sonarcloud:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up JDK 11
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+
+    - name: Cache SonarCloud packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.sonar/cache
+        key: ${{ runner.os }}-sonar
+
+    - name: Run SonarCloud analysis
+      run: |
+        sonar-scanner \
+        -Dsonar.projectKey=saicharanakula_devops-challenge \
+        -Dsonar.organization=saicharanakula \
+        -Dsonar.host.url=https://sonarcloud.io \
+        -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+        SAST_STATUS=$(curl -s https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge | jq -r '.analyses[0].qualityGate.status')
+        echo "SAST_STATUS=${SAST_STATUS}" >> $GITHUB_ENV
+
+    - name: Check SAST results
+      run: |
+        if [ "${{ env.SAST_STATUS }}" != "PASSED" ]; then
+          echo "SAST scan failed, aborting..."
+          exit 1
+        fi
+
+  deploy:
+    needs: sonarcloud
+    if: ${{ success() }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Add SSH key
+      run: |
+        echo "${{ secrets.EC2_SSH_KEY }}" > ec2-key.pem
+        chmod 600 ec2-key.pem
+
+    - name: Deploy to AWS EC2
+      run: |
+        ssh -i ec2-key.pem -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_IP }} "
+          echo '${{ secrets.DOCKER_PASSWORD }}' | docker login -u '${{ secrets.DOCKER_USERNAME }}' --password-stdin
+          docker pull charan0026/devopa-app:latest
+          docker run -d -p 80:80 charan0026/devopa-app:latest
+        "
+        
+    - name: Remove SSH key
+      run: rm ec2-key.pem
+
+  monitor_kpis:
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Monitor build time
+      id: build_time
+      run: |
+        BUILD_START=$(date +%s)
+        BUILD_END=$(date +%s)
+        BUILD_TIME=$((BUILD_END - BUILD_START))
+        echo "Build time: ${BUILD_TIME} seconds"
+
+    - name: Monitor test coverage
+      run: |
+        echo "Test coverage: ${{ env.COVERAGE }}%"
+        if [ "${{ env.COVERAGE }}" -lt 90 ]; then
+          echo "Test coverage too low, failing pipeline"
+          exit 1
+        fi
+
+    - name: Monitor SAST scan status
+      run: |
+        echo "SAST Scan Status: ${{ env.SAST_STATUS }}"
+        if [ "${{ env.SAST_STATUS }}" != "PASSED" ]; then
+          echo "SAST scan failed, failing pipeline"
+          exit 1
+        fi
+
+    - name: Monitor deployment success
+      run: |
+        if ! curl -f http://${{ secrets.EC2_IP }}; then
+          echo "Deployment failed, failing pipeline"
+          exit 1
+        fi
+        echo "Deployment successful"
