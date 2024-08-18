@@ -64,7 +64,9 @@ jobs:
       with:
         projectKey: saicharanakula_devops-challenge
         organization: saicharanakula
-        scannerParams: -Dsonar.projectKey=saicharanakula_devops-challenge -Dsonar.organization=saicharanakula
+        args: >
+         -Dsonar.organization=saicharanakula
+         -Dsonar.projectKey=saicharanakula_devops-challenge
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
