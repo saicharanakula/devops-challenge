@@ -148,7 +148,8 @@ jobs:
 
     steps:
     - name: Debug Build Time
-      run: echo "Debug Build Time: ${{ needs.build.outputs.build_time }}"
+      run: |
+        echo "Debug Build Time: ${{ needs.build.outputs.build_time }}"
 
     - name: Monitor build time
       run: |
@@ -159,7 +160,8 @@ jobs:
         echo "Build time: ${{ needs.build.outputs.build_time }} seconds"
 
     - name: Debug Coverage
-      run: echo "Debug Coverage: ${{ needs.build.outputs.coverage }}"
+      run: |
+        echo "Debug Coverage: ${{ needs.build.outputs.coverage }}"
 
     - name: Monitor test coverage
       run: |
@@ -174,7 +176,8 @@ jobs:
         fi
 
     - name: Debug SAST Status
-      run: echo "Debug SAST Status: ${{ needs.sonarcloud.outputs.sast_status }}"
+      run: |
+        echo "Debug SAST Status: ${{ needs.sonarcloud.outputs.sast_status }}"
 
     - name: Monitor SAST scan status
       run: |
