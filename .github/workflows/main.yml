@@ -153,8 +153,10 @@ jobs:
           echo "Test coverage not set, failing pipeline"
           exit 1
         fi
-        echo "Test coverage: ${{ needs.build.outputs.coverage }}%"
-        if [ "${{ needs.build.outputs.coverage }}" -lt 90 ]; then
+        # Strip the percentage sign
+        COVERAGE_VALUE=$(echo "${{ needs.build.outputs.coverage }}" | tr -d '%')
+        echo "Test coverage: ${COVERAGE_VALUE}%"
+        if [ "$COVERAGE_VALUE" -lt 90 ]; then
           echo "Test coverage too low, failing pipeline"
           exit 1
         fi
