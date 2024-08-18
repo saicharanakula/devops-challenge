@@ -67,6 +67,8 @@ jobs:
         args: >
          -Dsonar.organization=saicharanakula
          -Dsonar.projectKey=saicharanakula_devops-challenge
+         -Dsonar.sources=app.py
+         -Dsonar.tests=test_app.py
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
