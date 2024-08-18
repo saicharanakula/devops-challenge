@@ -33,9 +33,7 @@ jobs:
         pytest --cov=./ > coverage.txt
         COVERAGE=$(grep "TOTAL" coverage.txt | awk '{print $4}')
         echo "Test coverage: ${COVERAGE}%"
-        echo "COVERAGE=${COVERAGE}"
-      shell: bash
-      continue-on-error: true
+        echo "::set-output name=coverage::${COVERAGE}"
 
     - name: Build Docker image
       id: build-docker
@@ -47,19 +45,11 @@ jobs:
         BUILD_END=$(date +%s)
         BUILD_TIME=$((BUILD_END - $BUILD_START))
         echo "Build time: ${BUILD_TIME} seconds"
-        echo "BUILD_TIME=${BUILD_TIME}"
-      shell: bash
-
-    - name: Set Outputs
-      id: set-outputs
-      run: |
-        echo "::set-output name=coverage::${COVERAGE}"
         echo "::set-output name=build_time::${BUILD_TIME}"
-      shell: bash
 
     outputs:
-      coverage: ${{ steps.set-outputs.outputs.coverage }}
-      build_time: ${{ steps.set-outputs.outputs.build_time }}
+      coverage: ${{ steps.run-tests.outputs.coverage }}
+      build_time: ${{ steps.end-timer.outputs.build_time }}
 
   sonarcloud:
     needs: build
@@ -99,16 +89,10 @@ jobs:
       run: |
         ANALYSIS_KEY=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge" | jq -r '.analyses[0].key')
         SAST_STATUS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}" | jq -r '.projectStatus.status')
-        echo "SAST_STATUS=${SAST_STATUS}"
-      shell: bash
-
-    - name: Set SAST Output
-      id: set-sast-output
-      run: echo "::set-output name=sast_status::${SAST_STATUS}"
-      shell: bash
+        echo "::set-output name=sast_status::${SAST_STATUS}"
 
     outputs:
-      sast_status: ${{ steps.set-sast-output.outputs.sast_status }}
+      sast_status: ${{ steps.check-sast.outputs.sast_status }}
 
   deploy:
     needs: sonarcloud
