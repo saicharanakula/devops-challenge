@@ -144,4 +144,4 @@ jobs:
           echo "Deployment failed, failing pipeline"
           exit 1
         fi
-        echo "Deployment successful"
+        echo "Deployment successful!"
