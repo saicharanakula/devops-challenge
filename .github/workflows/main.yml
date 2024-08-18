@@ -152,7 +152,8 @@ jobs:
     steps:
     - name: Monitor build time
       id: build_time
-      run: echo "Build time: ${{ needs.build.outputs.build_time }} seconds"
+      run: |
+        echo "Build time: ${{ needs.build.outputs.build_time }} seconds"
 
     - name: Monitor test coverage
       run: |
