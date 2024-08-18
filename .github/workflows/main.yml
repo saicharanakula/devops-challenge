@@ -135,7 +135,7 @@ jobs:
       run: rm ec2-key.pem
 
   monitor_kpis:
-    needs: deploy
+    needs: [build, sonarcloud, deploy]
     runs-on: ubuntu-latest
 
     steps:
