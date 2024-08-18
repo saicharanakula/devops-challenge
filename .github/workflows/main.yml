@@ -33,7 +33,7 @@ jobs:
         pytest --cov=./ > coverage.txt
         COVERAGE=$(grep "TOTAL" coverage.txt | awk '{print $4}')
         echo "Test coverage: ${COVERAGE}%"
-        echo "::set-output name=coverage::${COVERAGE}"
+        echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
 
     - name: Build Docker image
       id: build-docker
@@ -45,7 +45,7 @@ jobs:
         BUILD_END=$(date +%s)
         BUILD_TIME=$((BUILD_END - $BUILD_START))
         echo "Build time: ${BUILD_TIME} seconds"
-        echo "::set-output name=build_time::${BUILD_TIME}"
+        echo "build_time=${BUILD_TIME}" >> $GITHUB_OUTPUT
 
     outputs:
       coverage: ${{ steps.run-tests.outputs.coverage }}
@@ -89,7 +89,7 @@ jobs:
       run: |
         ANALYSIS_KEY=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge" | jq -r '.analyses[0].key')
         SAST_STATUS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}" | jq -r '.projectStatus.status')
-        echo "::set-output name=sast_status::${SAST_STATUS}"
+        echo "sast_status=${SAST_STATUS}" >> $GITHUB_OUTPUT
 
     outputs:
       sast_status: ${{ steps.check-sast.outputs.sast_status }}
