@@ -156,14 +156,14 @@ jobs:
         
         echo "SAST_STATUS=${SAST_STATUS}" >> $GITHUB_ENV
         echo "SAST Scan Status: ${{ env.SAST_STATUS }}"
-        if [ "${{ env.SAST_STATUS }}" != "OK" ]; then
+        if [ "${SAST_STATUS}" != "OK" ]; then
           echo "SAST scan failed, failing pipeline"
           exit 1
         fi
 
     - name: Monitor deployment success
       run: |
-        if ! curl -f http://${{ secrets.EC2_IP }}; then
+        if ! curl -f http://${{ secrets.EC2_IP }}/items; then
           echo "Deployment failed, failing pipeline"
           exit 1
         fi
