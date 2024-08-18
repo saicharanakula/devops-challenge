@@ -149,6 +149,12 @@ jobs:
 
     - name: Monitor SAST scan status
       run: |
+        ANALYSIS_KEY=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge" | jq -r '.analyses[0].key')
+        curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}"
+        # Fetch the quality gate status using the analysis key
+        SAST_STATUS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}" | jq -r '.projectStatus.status')
+        
+        echo "SAST_STATUS=${SAST_STATUS}" >> $GITHUB_ENV
         echo "SAST Scan Status: ${{ env.SAST_STATUS }}"
         if [ "${{ env.SAST_STATUS }}" != "OK" ]; then
           echo "SAST scan failed, failing pipeline"
