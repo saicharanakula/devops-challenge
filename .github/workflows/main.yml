@@ -51,8 +51,8 @@ jobs:
         echo "BUILD_TIME=${BUILD_TIME}" >> $GITHUB_ENV
 
     outputs:
-      coverage: ${{ steps.coverage.outputs.COVERAGE }}
-      build_time: ${{ steps.build_time.outputs.BUILD_TIME }}
+      coverage: $${{ env.COVERAGE }}
+      build_time: ${{ env.BUILD_TIME }}
 
   sonarcloud:
     needs: build
@@ -103,7 +103,7 @@ jobs:
       id: sast_status
 
     outputs:
-      sast_status: ${{ steps.sast_status.outputs.SAST_STATUS }}
+      sast_status: ${{ env.SAST_STATUS }}
 
   deploy:
     needs: sonarcloud
