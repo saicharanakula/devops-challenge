@@ -1,12 +1,10 @@
 import requests
 from behave import given, when, then
 
-# Global variable to hold the base URL
-BASE_URL = "http://localhost"
-
 @given('the API is running')
 def step_impl(context):
-    context.base_url = BASE_URL
+    # Use the base_url passed as a CLI argument or the default one
+    pass  # base_url is already set in context from environment.py
 
 @given('I have added an item with data \'{data}\'')
 def step_impl(context, data):
