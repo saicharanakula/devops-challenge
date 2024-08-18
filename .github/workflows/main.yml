@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Start build timer
+      run: echo "BUILD_START=$(date +%s)" >> $GITHUB_ENV
+      
     - name: Checkout code
       uses: actions/checkout@v2
 
@@ -29,6 +32,7 @@ jobs:
         COVERAGE=$(grep "TOTAL" coverage.txt | awk '{print $4}')
         echo "Test coverage: ${COVERAGE}%"
         echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
+      id: coverage
 
     - name: Build Docker image
       run: docker build -t charan0026/devopa-app:latest .
@@ -38,6 +42,17 @@ jobs:
 
     - name: Push Docker image to Docker Hub
       run: docker push charan0026/devopa-app:latest
+
+    - name: End build timer and calculate build time
+      run: |
+        BUILD_END=$(date +%s)
+        BUILD_TIME=$((BUILD_END - $BUILD_START))
+        echo "Build time: ${BUILD_TIME} seconds"
+        echo "BUILD_TIME=${BUILD_TIME}" >> $GITHUB_ENV
+
+    outputs:
+      coverage: ${{ steps.coverage.outputs.COVERAGE }}
+      build_time: ${{ steps.build_time.outputs.BUILD_TIME }}
 
   sonarcloud:
     needs: build
@@ -85,6 +100,10 @@ jobs:
           echo "SAST scan failed, aborting..."
           exit 1
         fi
+      id: sast_status
+
+    outputs:
+      sast_status: ${{ steps.sast_status.outputs.SAST_STATUS }}
 
   deploy:
     needs: sonarcloud
@@ -133,30 +152,20 @@ jobs:
     steps:
     - name: Monitor build time
       id: build_time
-      run: |
-        BUILD_START=$(date +%s)
-        BUILD_END=$(date +%s)
-        BUILD_TIME=$((BUILD_END - BUILD_START))
-        echo "Build time: ${BUILD_TIME} seconds"
+      run: echo "Build time: ${{ needs.build.outputs.build_time }} seconds"
 
     - name: Monitor test coverage
       run: |
-        echo "Test coverage: ${{ env.COVERAGE }}%"
-        if [ "${{ env.COVERAGE }}" -lt 90 ]; then
+        echo "Test coverage: ${{ needs.build.outputs.coverage }}%"
+        if [ "${{ needs.build.outputs.coverage }}" -lt 90 ]; then
           echo "Test coverage too low, failing pipeline"
           exit 1
         fi
 
     - name: Monitor SAST scan status
       run: |
-        ANALYSIS_KEY=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/project_analyses/search?project=saicharanakula_devops-challenge" | jq -r '.analyses[0].key')
-        curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}"
-        # Fetch the quality gate status using the analysis key
-        SAST_STATUS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}" | jq -r '.projectStatus.status')
-        
-        echo "SAST_STATUS=${SAST_STATUS}" >> $GITHUB_ENV
-        echo "SAST Scan Status: ${{ env.SAST_STATUS }}"
-        if [ "${SAST_STATUS}" != "OK" ]; then
+        echo "SAST Scan Status: ${{ needs.sonarcloud.outputs.sast_status }}"
+        if [ "${{ needs.sonarcloud.outputs.sast_status }}" != "OK" ]; then
           echo "SAST scan failed, failing pipeline"
           exit 1
         fi
